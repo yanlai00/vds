@@ -8,7 +8,7 @@ from baselines.her.util import (
     store_args, flatten_grads, transitions_in_episode_batch)
 from baselines.her.normalizer import Normalizer
 from baselines.her.replay_buffer import ReplayBuffer
-from baselines.her.q_function import VFunction, QFunction, DoubleQFunction
+from baselines.her.q_function import DoubleQFunctionDropout
 from baselines.common.mpi_adam import MpiAdam
 from baselines.common import tf_util
 
@@ -74,8 +74,6 @@ class DropoutEnsemble:
 
         # Create network.
         with tf.variable_scope(self.scope):
-            self.staging_tf = [None]
-            self.stage_ops = [None]
             self.buffer_ph_tf = []
             
             staging_tf = StagingArea(
@@ -85,9 +83,9 @@ class DropoutEnsemble:
             stage_op = staging_tf.put(buffer_ph_tf)
 
             # store in attribute list
-            self.staging_tf[0] = staging_tf
+            self.staging_tf = [staging_tf]
             self.buffer_ph_tf.extend(buffer_ph_tf)
-            self.stage_ops[0] = stage_op
+            self.stage_ops = [stage_op]
 
             self._create_double_network(reuse=reuse)
 
@@ -100,28 +98,26 @@ class DropoutEnsemble:
         self.buffer = ReplayBuffer(buffer_shapes, buffer_size, self.T, self.sample_transitions)
 
     def get_values(self, o, ag, g, u=None):
-        if self.size_ensemble == 0:
-            return None
         if u is not None:
             u = self._preprocess_u(u)
         o, g = self._preprocess_og(o, ag, g)
         # values to compute
         vars = [v_function.V_tf for v_function in self.V_fun]
         # feed
-        feed = {}
-        for e in range(self.size_ensemble):
-            feed[self.V_fun[e].o_tf] = o.reshape(-1, self.dimo)
-            feed[self.V_fun[e].g_tf] = g.reshape(-1, self.dimg)
-            feed[self.V_fun[e].u_tf] = u.reshape(-1, self.dimu)
-
-        ret = self.sess.run(vars, feed_dict=feed)
-        # value prediction postprocessing
-        # ret = np.clip(ret, -self.clip_return, 0. if self.clip_pos_returns else self.clip_return)
-        ret = np.clip(ret, -self.clip_return, 0. if self.clip_pos_returns else np.inf)
-        return ret
+        ret_list = []
+        for _ in range(self.size_ensemble):
+            feed = {}
+            feed[self.V_fun[0].o_tf] = o.reshape(-1, self.dimo)
+            feed[self.V_fun[0].g_tf] = g.reshape(-1, self.dimg)
+            feed[self.V_fun[0].u_tf] = u.reshape(-1, self.dimu)
+            ret = self.sess.run(vars, feed_dict=feed)
+            # value prediction postprocessing
+            ret = np.clip(ret, -self.clip_return, 0. if self.clip_pos_returns else np.inf)
+            ret_list.append(ret)
+        return np.array(ret_list)
 
     def _sample_batch(self, policy):
-        batch_size_in_transitions = self.batch_size*self.size_ensemble
+        batch_size_in_transitions = self.batch_size
         transitions = self.buffer.sample(batch_size_in_transitions)
 
         # label policy
@@ -135,8 +131,7 @@ class DropoutEnsemble:
         transitions['o'], transitions['g'] = self._preprocess_og(o, ag, g)
         transitions['o_2'], transitions['g_2'] = self._preprocess_og(o_2, ag_2, g)
 
-        transitions_batches = [transitions[key][e*self.batch_size:(e+1)*self.batch_size]
-                               for e in range(self.size_ensemble) for key in self.stage_shapes.keys()]
+        transitions_batches = [transitions[key][:self.batch_size] for key in self.stage_shapes.keys()]
 
         return transitions_batches
 
@@ -161,12 +156,10 @@ class DropoutEnsemble:
         self._stage_batch(policy=policy)
         V_loss, V_grad = self._grads()
         self._update(V_grad)
-        assert len(V_loss) == self.size_ensemble
         return np.mean(V_loss)
 
     def _update(self, V_grad):
-        for e in range(self.size_ensemble):
-            self.V_adam[e].update(V_grad[e], self.lr)
+        self.V_adam[0].update(V_grad[0], self.lr)
 
     def _create_double_network(self, reuse=False):
         self.sess = tf_util.get_session()
@@ -197,7 +190,7 @@ class DropoutEnsemble:
 
         # networks (no target network for now)
         with tf.variable_scope(f've_0') as vs:
-            v_function = DoubleQFunction(batch_tf, **self.__dict__)
+            v_function = DoubleQFunctionDropout(batch_tf, **self.__dict__)
             vs.reuse_variables()
 
         with tf.variable_scope(f've_0_target') as vs:
@@ -205,7 +198,7 @@ class DropoutEnsemble:
             target_batch_tf['o'] = batch_tf['o_2']
             target_batch_tf['g'] = batch_tf['g_2']
             target_batch_tf['u'] = batch_tf['u_2']
-            v_target_function = DoubleQFunction(target_batch_tf, **self.__dict__)
+            v_target_function = DoubleQFunctionDropout(target_batch_tf, **self.__dict__)
             vs.reuse_variables()
 
         # loss functions
@@ -230,8 +223,8 @@ class DropoutEnsemble:
         self.V_adam[0] = V_adam
 
         # polyak averaging
-        main_vars = sum([self._vars(f've_{e}/V') for e in range(self.size_ensemble)], [])
-        target_vars = sum([self._vars(f've_{e}_target/V') for e in range(self.size_ensemble)], [])
+        main_vars = sum([self._vars(f've_0/V')], [])
+        target_vars = sum([self._vars(f've_0_target/V')], [])
         self.init_target_net_op = list(
             map(lambda v: v[0].assign(v[1]), zip(target_vars, main_vars)))
         self.update_target_net_op = list(
@@ -261,8 +254,7 @@ class DropoutEnsemble:
         return res
 
     def _sync_optimizers(self):
-        for e in range(self.size_ensemble):
-            self.V_adam[e].sync()
+        self.V_adam[0].sync()
 
     def _grads(self):
         """

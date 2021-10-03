@@ -182,6 +182,7 @@ def common_arg_parser():
     parser.add_argument('--save_interval', help='save inteval, per epoch for regular training, per n_batches for ve tranining', default=0, type=int)
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--bind_to_core', default=False, action='store_true')
+    parser.add_argument('--dropout', default=False, action='store_true')
     return parser
 
 def robotics_arg_parser():

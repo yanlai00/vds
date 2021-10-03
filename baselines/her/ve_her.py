@@ -152,6 +152,7 @@ def learn(*, env_type, env, eval_env, plotter_env, total_timesteps, num_cpu, all
     load_path=None,
     save_path=None,
     policy_pkl=None,
+    dropout=False,
 ):
 
     rank = MPI.COMM_WORLD.Get_rank()
@@ -193,8 +194,12 @@ def learn(*, env_type, env, eval_env, plotter_env, total_timesteps, num_cpu, all
     params = config.prepare_ve_params(params)
 
     dims = config.configure_dims(params)
-    policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun = \
-        config.configure_ve_ddpg(dims=dims, params=params, clip_return=clip_return)
+    if dropout:
+        policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun = \
+            config.configure_ve_ddpg_dropout(dims=dims, params=params, clip_return=clip_return)
+    else:
+        policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun = \
+            config.configure_ve_ddpg(dims=dims, params=params, clip_return=clip_return)
 
     env.envs_op("update_goal_sampler", goal_sampler=sample_disagreement_goals_fun)
     eval_env.envs_op("update_goal_sampler", goal_sampler=sample_uniform_goals_fun)

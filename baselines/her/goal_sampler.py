@@ -1,5 +1,6 @@
 import numpy as np
 from baselines import logger
+from baselines.her.dropout_ensemble_v1 import DropoutEnsemble
 
 FUN_NAME_TO_FUN = {
     'var': lambda vals: np.var(vals, axis=0),
@@ -99,6 +100,31 @@ def make_goal_sampler_factory_random_init_ob(
 
         if disagreement_fun_name == 'uniform' or value_ensemble.size_ensemble == 0:
             return sample_goals_fun(1)[0]
+        elif isinstance(value_ensemble, DropoutEnsemble):
+            all_states = sample_goals_fun(n_candidates)
+            o = obs_dict['observation'][np.newaxis, ...]
+            ag = obs_dict['achieved_goal'][np.newaxis, ...]
+            input_o = np.repeat(o, repeats=n_candidates, axis=0)
+            input_ag = np.repeat(ag, repeats=n_candidates, axis=0)
+            input_u = policy.get_actions(o=input_o, ag=input_ag, g=all_states)
+            vals = value_ensemble.get_values(o=input_o, ag=input_ag, g=all_states, u=input_u)
+
+            vals = np.squeeze(vals)  # (size_ensemble, n_candidates, 1) -> (size_ensemble, n_candidates)
+
+            compute_disagreement_fun = FUN_NAME_TO_FUN[disagreement_fun_name]
+            disagreement = compute_disagreement_fun(vals)
+
+            sum_disagreement = np.sum(disagreement)
+            if np.allclose(sum_disagreement, 0):
+                logger.logkv('ve/stats_disag/mean', 0)
+                logger.logkv('ve/stats_disag/std', 0)
+                disagreement = None
+            else:
+                logger.logkv('ve/stats_disag/mean', np.mean(disagreement))
+                logger.logkv('ve/stats_disag/std', np.std(disagreement))
+                disagreement /= sum_disagreement
+
+            return all_states[np.random.choice(np.arange(n_candidates), p=disagreement)]
         else:
 
             all_states = sample_goals_fun(n_candidates)

@@ -6,6 +6,7 @@ from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, mak
 from baselines.common.tf_util import get_session
 from baselines import logger
 from importlib import import_module
+import os
 
 from mpi4py import MPI
 
@@ -48,6 +49,7 @@ def train(args, extra_args):
         policy_pkl=None,#args.policy_pkl,
         save_interval=args.save_interval,
         override_params=alg_kwargs,
+        dropout=args.dropout
     )
 
     return policy, value_ensemble, env
@@ -100,6 +102,9 @@ def main(args):
     extra_args = parse_cmdline_kwargs(unknown_args)
 
     logger.info(args, extra_args)
+
+    if os.path.exists(args.log_path):
+        raise ValueError('log path exists!')
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0

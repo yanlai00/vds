@@ -4,6 +4,7 @@ import gym
 
 from baselines import logger
 from baselines.her.ddpg import DDPG
+from baselines.her.dropout_ensemble_v1 import DropoutEnsemble
 from baselines.her.goal_sampler import make_goal_sampler_factory_random_init_ob
 from baselines.her.value_ensemble_v1 import ValueEnsemble
 from baselines.her.her_sampler import make_sample_her_transitions
@@ -401,3 +402,58 @@ def configure_ve_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True)
     )
 
     return policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun
+
+def configure_ve_ddpg_dropout(dims, params, reuse=False, use_mpi=True, clip_return=True):
+    # Extract relevant parameters.
+    gamma = params['gamma']
+    rollout_batch_size = params['rollout_batch_size']
+
+    ddpg_sample_transitions, ve_sample_transitions = configure_ve_her(params)
+
+    # DDPG agent
+    ddpg_params = params['ddpg_params']
+    ddpg_params.update({'input_dims': dims.copy(),  # agent takes an input observations
+                        'T': params['T'],
+                        'scope': 'ddpg',
+                        'clip_pos_returns': True,  # clip positive returns
+                        'clip_return': (1. / (1. - gamma)) if clip_return else np.inf,  # max abs of return
+                        'rollout_batch_size': rollout_batch_size,
+                        'subtract_goals': simple_goal_subtract,
+                        'sample_transitions': ddpg_sample_transitions,
+                        'gamma': gamma,
+                        'bc_loss': params['bc_loss'],
+                        'q_filter': params['q_filter'],
+                        'num_demo': params['num_demo'],
+                        'demo_batch_size': params['demo_batch_size'],
+                        'prm_loss_weight': params['prm_loss_weight'],
+                        'aux_loss_weight': params['aux_loss_weight'],
+                        })
+    ddpg_params['info'] = {
+        'env_name': params['env_name'],
+    }
+    policy = DDPG(reuse=reuse, **ddpg_params, use_mpi=use_mpi)
+
+    ve_params = params['ve_params']
+    ve_params.update({
+        'input_dims': dims.copy(),
+        'T': params['T'],
+        'scope': 've',  # a hack to avoid duplicate vars when policy_pkl is loaded
+        'rollout_batch_size': rollout_batch_size,
+        'subtract_goals': simple_goal_subtract,
+        'clip_pos_returns': True,  # following ddpg configuration
+        'clip_return': (1. / (1. - gamma)) if clip_return else np.inf,  # following ddpg configuration
+        'sample_transitions': ve_sample_transitions,
+        'gamma': gamma,
+        # TODO: tmp hack below
+        'polyak': ddpg_params['polyak'],
+    })
+    dropout_ensemble = DropoutEnsemble(reuse=reuse, **ve_params)
+
+    # goal sampling function to be passed in vector env
+    sample_disagreement_goals_fun, sample_uniform_goals_fun = configure_disagreement(
+        params,
+        value_ensemble=dropout_ensemble,
+        policy=policy
+    )
+
+    return policy, dropout_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun
