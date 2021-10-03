@@ -1,7 +1,6 @@
 import numpy as np
 from baselines import logger
 
-# TODO: normalize vals?
 FUN_NAME_TO_FUN = {
     'var': lambda vals: np.var(vals, axis=0),
     'std': lambda vals: np.std(vals, axis=0),
@@ -97,7 +96,6 @@ def make_goal_sampler_factory_random_init_ob(
     sample_goals_fun, value_ensemble, policy, n_candidates, disagreement_fun_name
 ):
     def goal_sampler(obs_dict):
-        # return sample_goals_fun(1)[0]
 
         if disagreement_fun_name == 'uniform' or value_ensemble.size_ensemble == 0:
             return sample_goals_fun(1)[0]
@@ -111,23 +109,9 @@ def make_goal_sampler_factory_random_init_ob(
             input_u = None if not value_ensemble.use_Q else policy.get_actions(o=input_o, ag=input_ag, g=all_states)
             vals = value_ensemble.get_values(o=input_o, ag=input_ag, g=all_states,
                                              u=input_u)
-            # if vals is None:
-            #     # baseline: no value ensemble, use uniform goal sampler
-            #     disagreement = None
-            #     sum_disagreement = 0
-            # else:
+
             vals = np.squeeze(vals, axis=2)  # (size_ensemble, n_candidates, 1) -> (size_ensemble, n_candidates)
 
-            # if disagreement_fun_name.startswith('exp_'):
-            #     lmbda = float(disagreement_fun_name[len('exp_'):])
-            #     mu = np.mean(vals, axis=0)
-            #     std = np.std(vals, axis=0)
-            #     disagreement = np.exp(lmbda * mu + std)
-            #
-            #     logger.logkv('ve/sampled_q/lmbda', lmbda)
-            #     logger.logkv('ve/sampled_q/mean', np.mean(mu))
-            #     logger.logkv('ve/sampled_q/std', np.mean(std))
-            # else:
             compute_disagreement_fun = FUN_NAME_TO_FUN[disagreement_fun_name]
             disagreement = compute_disagreement_fun(vals)
 

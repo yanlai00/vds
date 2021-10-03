@@ -24,7 +24,7 @@ def train(args, extra_args):
     env_id = args.env
     env_type = args.env_type
 
-    alg_kwargs = get_learn_function_defaults(args.alg, env_type)
+    alg_kwargs = {}
     alg_kwargs.update(extra_args)
 
     env = build_env(args)
@@ -69,28 +69,6 @@ def build_env(args):
                        reward_scale=args.reward_scale, flatten_dict_observations=False,
                        force_dummy=args.force_dummy)
     return env
-
-
-def get_alg_module(alg, submodule=None):
-    submodule = submodule or alg
-    try:
-        # first try to import the alg module from baselines
-        alg_module = import_module('.'.join(['baselines', alg, submodule]))
-    except ImportError:
-        # then from rl_algs
-        alg_module = import_module('.'.join(['rl_' + 'algs', alg, submodule]))
-
-    return alg_module
-
-
-def get_learn_function_defaults(alg, env_type):
-    try:
-        alg_defaults = get_alg_module(alg, 'defaults')
-        kwargs = getattr(alg_defaults, env_type)()
-    except (ImportError, AttributeError):
-        kwargs = {}
-    return kwargs
-
 
 def parse_cmdline_kwargs(args):
     '''

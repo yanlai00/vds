@@ -29,7 +29,7 @@ def mpi_average(value):
 
 def train(*, policy, value_ensemble, rollout_worker, evaluator,
           n_epochs, n_test_rollouts, n_cycles, n_batches, ve_n_batches,
-          save_interval, save_path, plotter):
+          save_interval, save_path):
     if MPI is not None:
         rank = MPI.COMM_WORLD.Get_rank()
     else:
@@ -40,14 +40,7 @@ def train(*, policy, value_ensemble, rollout_worker, evaluator,
 
     logger.info("Training...")
     to_dump = dict(value_ensemble=value_ensemble, policy=policy)
-    goal_history = []
 
-    # while not value_ensemble.buffer_full:
-    #     rollout_worker.clear_history()
-    #     episode = rollout_worker.generate_rollouts()
-    #     value_ensemble.store_episode(episode)
-
-    # num_timesteps = n_epochs * n_cycles * rollout_length * number of rollout workers
     for epoch in range(n_epochs):
         # train
         rollout_worker.clear_history()
@@ -55,13 +48,11 @@ def train(*, policy, value_ensemble, rollout_worker, evaluator,
         ve_loss_history, critic_loss_history, actor_loss_history = [], [], []
         for _ in range(n_cycles):
             t = time.time()
+            # 1. Generate Rollouts
             episode = rollout_worker.generate_rollouts()
             time_rollout += time.time() - t
 
-            # store goals for visualizatino
-            goal_history.append(episode['g'][:, -1, :])  # (rollout_batch_size, goal_dim)
-
-            # train the value ensemble
+            # 2. train the value ensemble
             # label u_2 because value_ensemble doesn't have access to the policy
             if value_ensemble.size_ensemble > 0:
                 t = time.time()
@@ -72,7 +63,7 @@ def train(*, policy, value_ensemble, rollout_worker, evaluator,
                 value_ensemble.update_target_net()
                 time_ve += time.time() - t
 
-            # train the policy
+            # 3. train the policy
             t = time.time()
             policy.store_episode(episode)
             for _ in range(n_batches):
@@ -89,6 +80,7 @@ def train(*, policy, value_ensemble, rollout_worker, evaluator,
             evaluator.generate_rollouts()
         time_eval = time.time() - t
 
+    # logging
         # record total timesteps
         logger.record_tabular('timesteps', policy.buffer.get_transitions_stored())
 
@@ -116,82 +108,12 @@ def train(*, policy, value_ensemble, rollout_worker, evaluator,
 
         if rank == 0:
             logger.dump_tabular()
-            if plotter is not None:
-                goal_history = np.concatenate(goal_history, axis=0)
-                plotter(epoch, goal_history)
-            goal_history = []
 
         if rank == 0 and save_interval > 0 and epoch % save_interval == 0 and save_path:
             # to_dump['samples'] = rollout_worker.venv.reset_history()
             joblib.dump(to_dump, save_path.format(epoch), compress=3)
 
-        # make sure that different threads have different seeds
-        local_uniform = np.random.uniform(size=(1,))
-        root_uniform = local_uniform.copy()
-        MPI.COMM_WORLD.Bcast(root_uniform, root=0)
-        if rank != 0:
-            assert local_uniform[0] != root_uniform[0]
-
-    return policy, value_ensemble
-
-
-def train_ve(*, policy, value_ensemble, rollout_worker, evaluator,
-          n_epochs, n_test_rollouts, n_cycles, n_batches, ve_n_batches,
-          save_interval, save_path):
-    if MPI is not None:
-        rank = MPI.COMM_WORLD.Get_rank()
-    else:
-        rank = 0
-
-    if save_path:
-        save_path = os.path.join(save_path, 'itr_{}.pkl')
-
-    logger.info("Training with freezing policy...")
-    to_dump = dict(value_ensemble=value_ensemble)
-
-    while not value_ensemble.buffer_full:
-        rollout_worker.clear_history()
-        episode = rollout_worker.generate_rollouts()
-        value_ensemble.store_episode(episode)
-
-    # num_timesteps = n_epochs * n_cycles * rollout_length * number of rollout workers + ve_buffer_size
-
-    training_counter = count()
-    for cycle in range(n_epochs*n_cycles):
-        # train
-        rollout_worker.clear_history()
-        episode = rollout_worker.generate_rollouts()
-        # train the value ensemble
-        value_ensemble.store_episode(episode)
-        for batch in range(ve_n_batches):
-            training_epoch = next(training_counter)
-
-            t = time.time()
-            ve_loss = value_ensemble.train()
-
-            if save_interval > 0 and training_epoch % save_interval == 0:
-                # record total timesteps
-                logger.record_tabular('timesteps', value_ensemble.buffer_get_transitions_stored())
-
-                # record loss
-                logger.record_tabular('ve/loss', ve_loss)
-
-                # record time
-                logger.record_tabular('time_ve', time.time() - t)
-
-                # record logs
-                logger.record_tabular('cycle', cycle)
-                logger.record_tabular('batch', batch)
-                for key, val in value_ensemble.logs('ve'):
-                    logger.record_tabular(key, mpi_average(val))
-
-                if rank == 0:
-                    logger.dump_tabular()
-
-        if rank == 0 and save_path:
-            joblib.dump(to_dump, save_path.format(cycle), compress=3)
-
-        # make sure that different threads have different seeds
+    # make sure that different threads have different seeds
         local_uniform = np.random.uniform(size=(1,))
         root_uniform = local_uniform.copy()
         MPI.COMM_WORLD.Bcast(root_uniform, root=0)
@@ -272,21 +194,16 @@ def learn(*, env_type, env, eval_env, plotter_env, total_timesteps, num_cpu, all
 
     dims = config.configure_dims(params)
     policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun = \
-        config.configure_ve_ddpg(dims=dims, params=params, clip_return=clip_return, policy_pkl=policy_pkl)
+        config.configure_ve_ddpg(dims=dims, params=params, clip_return=clip_return)
 
-    if policy_pkl is not None:
-        env.set_sample_goals_fun(sample_dummy_goals_fun)
-    else:
-        env.envs_op("update_goal_sampler", goal_sampler=sample_disagreement_goals_fun)
-        eval_env.envs_op("update_goal_sampler", goal_sampler=sample_uniform_goals_fun)
-        if plotter_env is not None:
-            plotter_env.envs_op("update_goal_sampler", goal_sampler=sample_uniform_goals_fun)
+    env.envs_op("update_goal_sampler", goal_sampler=sample_disagreement_goals_fun)
+    eval_env.envs_op("update_goal_sampler", goal_sampler=sample_uniform_goals_fun)
 
     if load_path is not None:
         tf_util.load_variables(os.path.join(load_path, 'final_policy_params.joblib'))
         return play(env=env, policy=policy)
 
-    rollout_params, eval_params, plotter_params = config.configure_rollout_worker_params(params)
+    rollout_params, eval_params, _ = config.configure_rollout_worker_params(params)
 
     rollout_worker = RolloutWorker(env, policy, dims, logger, monitor=True, **rollout_params)
 
@@ -297,30 +214,12 @@ def learn(*, env_type, env, eval_env, plotter_env, total_timesteps, num_cpu, all
 
     config.log_params(params, logger=logger)
 
-    if policy_pkl is not None:
-        train_fun = train_ve
-        evaluator = None
-    else:
-        train_fun = train
-        # construct evaluator
-        # assert eval_env.sample_goals_fun is None
-        # eval_env.set_sample_goals_fun(sample_dummy_goals_fun)
-        evaluator = RolloutWorker(eval_env, policy, dims, logger, **eval_params)
-        if plotter_env is not None:
-            raise NotImplementedError
-            # from baselines.misc.html_report import HTMLReport
-            # plotter_worker = RolloutWorker(plotter_env, policy, dims, logger, **plotter_params)
-            # rank = MPI.COMM_WORLD.Get_rank()
-            # report = HTMLReport(os.path.join(save_path, f'report-{rank}.html'), images_per_row=8)
-            #
-            # # report.add_header("{}".format(EXPERIMENT_TYPE))
-            # # report.add_text(format_dict(v))
-            # plotter = config.configure_plotter(policy, value_ensemble, plotter_worker, params, report)
-        else:
-            plotter = None
+    # construct evaluator
+    # eval_env.set_sample_goals_fun(sample_dummy_goals_fun)
+    evaluator = RolloutWorker(eval_env, policy, dims, logger, **eval_params)
 
-    return train_fun(
+    return train(
         save_path=save_path, policy=policy, value_ensemble=value_ensemble, rollout_worker=rollout_worker,
         evaluator=evaluator, n_epochs=n_epochs, n_test_rollouts=params['n_test_rollouts'],
         n_cycles=params['n_cycles'], n_batches=params['n_batches'], ve_n_batches=params['ve_n_batches'],
-        save_interval=save_interval, plotter=plotter)
+        save_interval=save_interval)

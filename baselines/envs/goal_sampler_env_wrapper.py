@@ -1,6 +1,7 @@
 from gym import Wrapper
 import numpy as np
 
+from baselines.envs.maze.maze import ParticleMazeEnv
 
 class GoalSamplerEnvWrapper(Wrapper):
     def __init__(self, env):
@@ -15,7 +16,10 @@ class GoalSamplerEnvWrapper(Wrapper):
         # below: self.unwrapped.reset() (gym.RobotEnv)
         did_reset_sim = False
         while not did_reset_sim:
-            did_reset_sim = self.unwrapped._reset_sim()
+            if isinstance (self.unwrapped, ParticleMazeEnv):
+                did_reset_sim = self.unwrapped.reset
+            else:
+                did_reset_sim = self.unwrapped._reset_sim()
         if reset_goal:
             obs = self.unwrapped._get_obs()
             self.unwrapped.goal = self.sample_goal_fun(obs_dict=obs)

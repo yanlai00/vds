@@ -237,10 +237,8 @@ def configure_ve_her(params):
 
 def configure_disagreement(params, value_ensemble, policy):
     env = cached_make_env(params['make_env'])
-    # env.get_reset()
 
     disagreement_params = dict(
-        # 'static_init_obs': env.static_init_obs,
         sample_goals_fun=lambda size: [env.unwrapped._sample_goal() for _ in range(size)],
         policy=policy,
         value_ensemble=value_ensemble,
@@ -296,32 +294,6 @@ def configure_rollout_worker_params(params):
 
     return rollout_params, eval_params, plotter_params
 
-#
-# def configure_plotter(policy, value_ensemble, plotter_worker, params, report):
-#     import functools
-#     from baselines.envs.visualization.utils import make_plotter, plot_heatmap
-#
-#     env = cached_make_env(params['make_env'])
-#     goals, plotter_info = env.get_grid_goals(sampling_res=5, feasible=True)  # use 0 for Point-v0
-#
-#     # TODO: plot all goals here
-#
-#     plot_heatmap_fun = functools.partial(plot_heatmap, show_heatmap=False, **plotter_info)
-#
-#     return make_plotter(
-#         init_ob=env.reset(reset_goal=False),
-#         policy=policy,
-#         value_ensemble=value_ensemble,
-#         goals=goals,
-#         disagreement_str='std', # params['gs_params']['disagreement_fun_name'],
-#         plotter_worker=plotter_worker,
-#         gamma=params['gamma'],
-#         report=report,
-#         plot_heatmap_fun=plot_heatmap_fun,
-#         eval_policy=False,
-#     )
-
-
 def configure_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True):
     sample_her_transitions = configure_her(params)
     # Extract relevant parameters.
@@ -375,52 +347,41 @@ def configure_dims(params):
     return dims
 
 
-def configure_ve_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True, policy_pkl=None):
+def configure_ve_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True):
     # Extract relevant parameters.
     gamma = params['gamma']
     rollout_batch_size = params['rollout_batch_size']
-    # env = cached_make_env(params['make_env'])
-    # env.get_reset_obs()
-    # env.reset()
 
     ddpg_sample_transitions, ve_sample_transitions = configure_ve_her(params)
 
     # DDPG agent
-    if policy_pkl is not None:
-        # load froze policy
-        import joblib
-        logger.info('loading policy...')
-        data = joblib.load(policy_pkl)
-        policy = data['policy']
-
-    else:
-        ddpg_params = params['ddpg_params']
-        ddpg_params.update({'input_dims': dims.copy(),  # agent takes an input observations
-                            'T': params['T'],
-                            'scope': 'ddpg',
-                            'clip_pos_returns': True,  # clip positive returns
-                            'clip_return': (1. / (1. - gamma)) if clip_return else np.inf,  # max abs of return
-                            'rollout_batch_size': rollout_batch_size,
-                            'subtract_goals': simple_goal_subtract,
-                            'sample_transitions': ddpg_sample_transitions,
-                            'gamma': gamma,
-                            'bc_loss': params['bc_loss'],
-                            'q_filter': params['q_filter'],
-                            'num_demo': params['num_demo'],
-                            'demo_batch_size': params['demo_batch_size'],
-                            'prm_loss_weight': params['prm_loss_weight'],
-                            'aux_loss_weight': params['aux_loss_weight'],
-                            })
-        ddpg_params['info'] = {
-            'env_name': params['env_name'],
-        }
-        policy = DDPG(reuse=reuse, **ddpg_params, use_mpi=use_mpi)
+    ddpg_params = params['ddpg_params']
+    ddpg_params.update({'input_dims': dims.copy(),  # agent takes an input observations
+                        'T': params['T'],
+                        'scope': 'ddpg',
+                        'clip_pos_returns': True,  # clip positive returns
+                        'clip_return': (1. / (1. - gamma)) if clip_return else np.inf,  # max abs of return
+                        'rollout_batch_size': rollout_batch_size,
+                        'subtract_goals': simple_goal_subtract,
+                        'sample_transitions': ddpg_sample_transitions,
+                        'gamma': gamma,
+                        'bc_loss': params['bc_loss'],
+                        'q_filter': params['q_filter'],
+                        'num_demo': params['num_demo'],
+                        'demo_batch_size': params['demo_batch_size'],
+                        'prm_loss_weight': params['prm_loss_weight'],
+                        'aux_loss_weight': params['aux_loss_weight'],
+                        })
+    ddpg_params['info'] = {
+        'env_name': params['env_name'],
+    }
+    policy = DDPG(reuse=reuse, **ddpg_params, use_mpi=use_mpi)
 
     ve_params = params['ve_params']
     ve_params.update({
         'input_dims': dims.copy(),
         'T': params['T'],
-        'scope': 've' if policy_pkl is None else 've-trainable',  # a hack to avoid duplicate vars when policy_pkl is loaded
+        'scope': 've',  # a hack to avoid duplicate vars when policy_pkl is loaded
         'rollout_batch_size': rollout_batch_size,
         'subtract_goals': simple_goal_subtract,
         'clip_pos_returns': True,  # following ddpg configuration
