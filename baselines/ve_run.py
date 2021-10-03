@@ -49,7 +49,8 @@ def train(args, extra_args):
         policy_pkl=None,#args.policy_pkl,
         save_interval=args.save_interval,
         override_params=alg_kwargs,
-        dropout=args.dropout
+        dropout=args.dropout,
+        use_rnd=args.rnd,
     )
 
     return policy, value_ensemble, env

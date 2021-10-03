@@ -3,6 +3,7 @@ import numpy as np
 import gym
 
 from baselines import logger
+from baselines.her.RND_v1 import RND
 from baselines.her.ddpg import DDPG
 from baselines.her.dropout_ensemble_v1 import DropoutEnsemble
 from baselines.her.goal_sampler import make_goal_sampler_factory_random_init_ob
@@ -255,6 +256,25 @@ def configure_disagreement(params, value_ensemble, policy):
 
     return sample_disagreement_goals, sample_uniform_goals
 
+def configure_disagreement_rnd(params, value_ensemble, policy, rnd):
+    env = cached_make_env(params['make_env'])
+
+    disagreement_params = dict(
+        sample_goals_fun=lambda size: [env.unwrapped._sample_goal() for _ in range(size)],
+        policy=policy,
+        value_ensemble=value_ensemble,
+        rnd=rnd
+    )
+    gs_params = params['gs_params']
+    sample_disagreement_goals = make_goal_sampler_factory_random_init_ob(**disagreement_params,
+        n_candidates=gs_params["n_candidates"], disagreement_fun_name=gs_params["disagreement_fun_name"]
+    )
+
+    sample_uniform_goals = make_goal_sampler_factory_random_init_ob(**disagreement_params,
+        n_candidates=1, disagreement_fun_name='uniform',
+    )
+
+    return sample_disagreement_goals, sample_uniform_goals
 
 def simple_goal_subtract(a, b):
     assert a.shape == b.shape
@@ -457,3 +477,60 @@ def configure_ve_ddpg_dropout(dims, params, reuse=False, use_mpi=True, clip_retu
     )
 
     return policy, dropout_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun
+
+def configure_ve_ddpg_rnd(dims, params, reuse=False, use_mpi=True, clip_return=True):
+    # Extract relevant parameters.
+    gamma = params['gamma']
+    rollout_batch_size = params['rollout_batch_size']
+
+    ddpg_sample_transitions, ve_sample_transitions = configure_ve_her(params)
+
+    # DDPG agent
+    ddpg_params = params['ddpg_params']
+    ddpg_params.update({'input_dims': dims.copy(),  # agent takes an input observations
+                        'T': params['T'],
+                        'scope': 'ddpg',
+                        'clip_pos_returns': True,  # clip positive returns
+                        'clip_return': (1. / (1. - gamma)) if clip_return else np.inf,  # max abs of return
+                        'rollout_batch_size': rollout_batch_size,
+                        'subtract_goals': simple_goal_subtract,
+                        'sample_transitions': ddpg_sample_transitions,
+                        'gamma': gamma,
+                        'bc_loss': params['bc_loss'],
+                        'q_filter': params['q_filter'],
+                        'num_demo': params['num_demo'],
+                        'demo_batch_size': params['demo_batch_size'],
+                        'prm_loss_weight': params['prm_loss_weight'],
+                        'aux_loss_weight': params['aux_loss_weight'],
+                        })
+    ddpg_params['info'] = {
+        'env_name': params['env_name'],
+    }
+    policy = DDPG(reuse=reuse, **ddpg_params, use_mpi=use_mpi)
+
+    ve_params = params['ve_params']
+    ve_params.update({
+        'input_dims': dims.copy(),
+        'T': params['T'],
+        'scope': 've',  # a hack to avoid duplicate vars when policy_pkl is loaded
+        'rollout_batch_size': rollout_batch_size,
+        'subtract_goals': simple_goal_subtract,
+        'clip_pos_returns': True,  # following ddpg configuration
+        'clip_return': (1. / (1. - gamma)) if clip_return else np.inf,  # following ddpg configuration
+        'sample_transitions': ve_sample_transitions,
+        'gamma': gamma,
+        # TODO: tmp hack below
+        'polyak': ddpg_params['polyak'],
+    })
+    value_ensemble = ValueEnsemble(reuse=reuse, **ve_params)
+    rnd = RND(reuse=reuse, **ve_params)
+
+    # goal sampling function to be passed in vector env
+    sample_disagreement_goals_fun, sample_uniform_goals_fun = configure_disagreement_rnd(
+        params,
+        value_ensemble=value_ensemble,
+        policy=policy,
+        rnd=rnd
+    )
+
+    return policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun, rnd

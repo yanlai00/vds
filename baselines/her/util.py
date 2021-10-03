@@ -54,17 +54,20 @@ def flatten_grads(var_list, grads):
                       for (v, grad) in zip(var_list, grads)], 0)
 
 
-def nn(input, layers_sizes, reuse=None, flatten=False, name="", dropout=0):
+def nn(input, layers_sizes, reuse=None, flatten=False, name="", dropout=0, trainable=True, kernel_initializer=None):
     """Creates a simple neural network
     """
+    if not kernel_initializer:
+        kernel_initializer=tf.contrib.layers.xavier_initializer()
     for i, size in enumerate(layers_sizes):
         dropout_layer = tf.nn.dropout
         activation = tf.nn.relu if i < len(layers_sizes) - 1 else None
         input = tf.layers.dense(inputs=input,
                                 units=size,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                 reuse=reuse,
-                                name=name + '_' + str(i))
+                                name=name + '_' + str(i),
+                                trainable=trainable,
+                                kernel_initializer=kernel_initializer)
         if dropout:
             input = dropout_layer(input, keep_prob=dropout)
         if activation:

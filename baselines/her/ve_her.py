@@ -29,7 +29,7 @@ def mpi_average(value):
 
 def train(*, policy, value_ensemble, rollout_worker, evaluator,
           n_epochs, n_test_rollouts, n_cycles, n_batches, ve_n_batches,
-          save_interval, save_path):
+          save_interval, save_path, rnd=None):
     if MPI is not None:
         rank = MPI.COMM_WORLD.Get_rank()
     else:
@@ -62,6 +62,11 @@ def train(*, policy, value_ensemble, rollout_worker, evaluator,
                     ve_loss_history.append(ve_loss)
                 value_ensemble.update_target_net()
                 time_ve += time.time() - t
+            
+            if rnd:
+                rnd.store_episode(episode)
+                for _ in range(ve_n_batches):
+                    rnd.train(policy=policy)
 
             # 3. train the policy
             t = time.time()
@@ -153,6 +158,7 @@ def learn(*, env_type, env, eval_env, plotter_env, total_timesteps, num_cpu, all
     save_path=None,
     policy_pkl=None,
     dropout=False,
+    use_rnd=False,
 ):
 
     rank = MPI.COMM_WORLD.Get_rank()
@@ -197,9 +203,14 @@ def learn(*, env_type, env, eval_env, plotter_env, total_timesteps, num_cpu, all
     if dropout:
         policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun = \
             config.configure_ve_ddpg_dropout(dims=dims, params=params, clip_return=clip_return)
+        rnd = None
+    elif use_rnd:
+        policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun, rnd = \
+            config.configure_ve_ddpg_rnd(dims=dims, params=params, clip_return=clip_return)        
     else:
         policy, value_ensemble, sample_disagreement_goals_fun, sample_uniform_goals_fun = \
             config.configure_ve_ddpg(dims=dims, params=params, clip_return=clip_return)
+        rnd = None
 
     env.envs_op("update_goal_sampler", goal_sampler=sample_disagreement_goals_fun)
     eval_env.envs_op("update_goal_sampler", goal_sampler=sample_uniform_goals_fun)
@@ -227,4 +238,4 @@ def learn(*, env_type, env, eval_env, plotter_env, total_timesteps, num_cpu, all
         save_path=save_path, policy=policy, value_ensemble=value_ensemble, rollout_worker=rollout_worker,
         evaluator=evaluator, n_epochs=n_epochs, n_test_rollouts=params['n_test_rollouts'],
         n_cycles=params['n_cycles'], n_batches=params['n_batches'], ve_n_batches=params['ve_n_batches'],
-        save_interval=save_interval)
+        save_interval=save_interval, rnd=rnd)
