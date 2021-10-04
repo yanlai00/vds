@@ -43,7 +43,7 @@ def train(*, policy, value_ensemble, #goal_sampler_factory,
         save_path = os.path.join(save_path, 'itr_{}.pkl')
 
     print("start training...")
-    to_dump = dict(valiue_ensemble=value_ensemble, policy=policy, goal_history=None)
+    to_dump = dict(value_ensemble=value_ensemble, policy=policy, goal_history=None)
     goal_history = []
 
     # reused_states = None

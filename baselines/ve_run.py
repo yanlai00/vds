@@ -6,6 +6,7 @@ from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, mak
 from baselines.common.tf_util import get_session
 from baselines import logger
 from importlib import import_module
+import os
 
 from mpi4py import MPI
 
@@ -24,7 +25,7 @@ def train(args, extra_args):
     env_id = args.env
     env_type = args.env_type
 
-    alg_kwargs = get_learn_function_defaults(args.alg, env_type)
+    alg_kwargs = {}
     alg_kwargs.update(extra_args)
 
     env = build_env(args)
@@ -48,6 +49,8 @@ def train(args, extra_args):
         policy_pkl=None,#args.policy_pkl,
         save_interval=args.save_interval,
         override_params=alg_kwargs,
+        dropout=args.dropout,
+        use_rnd=args.rnd,
     )
 
     return policy, value_ensemble, env
@@ -69,28 +72,6 @@ def build_env(args):
                        reward_scale=args.reward_scale, flatten_dict_observations=False,
                        force_dummy=args.force_dummy)
     return env
-
-
-def get_alg_module(alg, submodule=None):
-    submodule = submodule or alg
-    try:
-        # first try to import the alg module from baselines
-        alg_module = import_module('.'.join(['baselines', alg, submodule]))
-    except ImportError:
-        # then from rl_algs
-        alg_module = import_module('.'.join(['rl_' + 'algs', alg, submodule]))
-
-    return alg_module
-
-
-def get_learn_function_defaults(alg, env_type):
-    try:
-        alg_defaults = get_alg_module(alg, 'defaults')
-        kwargs = getattr(alg_defaults, env_type)()
-    except (ImportError, AttributeError):
-        kwargs = {}
-    return kwargs
-
 
 def parse_cmdline_kwargs(args):
     '''
@@ -122,6 +103,9 @@ def main(args):
     extra_args = parse_cmdline_kwargs(unknown_args)
 
     logger.info(args, extra_args)
+
+    if os.path.exists(args.log_path):
+        raise ValueError('log path exists!')
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
