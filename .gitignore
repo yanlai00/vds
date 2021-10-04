@@ -15,8 +15,6 @@ keys/
 /env
 
 # Data
-/data
-
 
 *.sublime-project
 *.sublime-workspace
