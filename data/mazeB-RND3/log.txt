@@ -1,0 +1,238 @@
+Logging to ./data/mazeB-RND3
+Training her on goal:MazeB-v0 with arguments 
+{'size_ensemble': 3}
+before mpi_fork: rank 0 num_cpu 1
+after mpi_fork: rank 0 num_cpu 1
+Creating a DDPG agent with action space 2 x 1.0...
+T: 50
+_Q_lr: 0.001
+_action_l2: 1.0
+_batch_size: 256
+_buffer_size: 1000000
+_clip_obs: 200.0
+_disagreement_fun_name: std
+_hidden: 256
+_layers: 3
+_max_u: 1.0
+_n_candidates: 1000
+_network_class: baselines.her.actor_critic:ActorCritic
+_noise_eps: 0.2
+_norm_clip: 5
+_norm_eps: 0.01
+_pi_lr: 0.001
+_polyak: 0.95
+_random_eps: 0.3
+_relative_goals: False
+_replay_k: 4
+_replay_strategy: future
+_rollout_batch_size: 1
+_size_ensemble: 3
+_test_with_polyak: False
+_ve_batch_size: 1000
+_ve_buffer_size: 1000000
+_ve_lr: 0.001
+_ve_replay_k: 4
+_ve_replay_strategy: none
+_ve_use_Q: True
+_ve_use_double_network: True
+aux_loss_weight: 0.0078
+bc_loss: 0
+ddpg_params: {'buffer_size': 1000000, 'hidden': 256, 'layers': 3, 'network_class': 'baselines.her.actor_critic:ActorCritic', 'polyak': 0.95, 'batch_size': 256, 'Q_lr': 0.001, 'pi_lr': 0.001, 'norm_eps': 0.01, 'norm_clip': 5, 'max_u': 1.0, 'action_l2': 1.0, 'clip_obs': 200.0, 'relative_goals': False, 'input_dims': {'o': 2, 'u': 2, 'g': 2, 'info_is_success': 1}, 'T': 50, 'scope': 'ddpg', 'clip_pos_returns': True, 'clip_return': 49.99999999999996, 'rollout_batch_size': 1, 'subtract_goals': <function simple_goal_subtract at 0x7fb6080c5b90>, 'sample_transitions': <function make_sample_her_transitions.<locals>._sample_her_transitions at 0x7fb650f3d8c0>, 'gamma': 0.98, 'bc_loss': 0, 'q_filter': 0, 'num_demo': 100, 'demo_batch_size': 128, 'prm_loss_weight': 0.001, 'aux_loss_weight': 0.0078, 'info': {'env_name': 'MazeB-v0'}}
+demo_batch_size: 128
+env_name: MazeB-v0
+env_type: goal
+gamma: 0.98
+gs_params: {'n_candidates': 1000, 'disagreement_fun_name': 'std'}
+make_env: <function prepare_params.<locals>.make_env at 0x7fb6080cc170>
+n_batches: 40
+n_cycles: 50
+n_epochs: 160
+n_test_rollouts: 10
+num_cpu: 1
+num_demo: 100
+prm_loss_weight: 0.001
+q_filter: 0
+total_timesteps: 400000
+ve_n_batches: 100
+ve_params: {'size_ensemble': 3, 'buffer_size': 1000000, 'lr': 0.001, 'batch_size': 1000, 'use_Q': True, 'use_double_network': True, 'hidden': 256, 'layers': 3, 'norm_eps': 0.01, 'norm_clip': 5, 'max_u': 1.0, 'clip_obs': 200.0, 'relative_goals': False, 'input_dims': {'o': 2, 'u': 2, 'g': 2, 'info_is_success': 1}, 'T': 50, 'scope': 've', 'rollout_batch_size': 1, 'subtract_goals': <function simple_goal_subtract at 0x7fb6080c5b90>, 'clip_pos_returns': True, 'clip_return': 49.99999999999996, 'sample_transitions': <function make_sample_her_transitions.<locals>._sample_her_transitions at 0x7fb650d58440>, 'gamma': 0.98, 'polyak': 0.95}
+Training...
+----------------------------------
+| ddpg/stats_g/mean   | -0.0395  |
+| ddpg/stats_g/std    | 0.384    |
+| ddpg/stats_o/mean   | -0.0571  |
+| ddpg/stats_o/std    | 0.222    |
+| epoch               | 0        |
+| test/episode        | 10       |
+| test/mean_Q         | -2.91    |
+| test/success_rate   | 0        |
+| test/sum_rewards    | -49      |
+| test/timesteps      | 500      |
+| time_eval           | 0.307    |
+| time_rollout        | 5.06     |
+| time_train          | 23.5     |
+| time_ve             | 283      |
+| timesteps           | 2.5e+03  |
+| train/actor_loss    | -0.681   |
+| train/critic_loss   | 0.032    |
+| train/episode       | 50       |
+| train/success_rate  | 0.18     |
+| train/sum_rewards   | -43.3    |
+| train/timesteps     | 2.5e+03  |
+| ve/loss             | 0.00355  |
+| ve/stats_disag/mean | 0.0667   |
+| ve/stats_disag/std  | 0.0494   |
+| ve/stats_g/mean     | 0.0305   |
+| ve/stats_g/std      | 0.536    |
+| ve/stats_o/mean     | -0.0565  |
+| ve/stats_o/std      | 0.224    |
+----------------------------------
+----------------------------------
+| ddpg/stats_g/mean   | 0.0148   |
+| ddpg/stats_g/std    | 0.37     |
+| ddpg/stats_o/mean   | 0.00798  |
+| ddpg/stats_o/std    | 0.246    |
+| epoch               | 1        |
+| test/episode        | 20       |
+| test/mean_Q         | -4.76    |
+| test/success_rate   | 0.1      |
+| test/sum_rewards    | -44.1    |
+| test/timesteps      | 1e+03    |
+| time_eval           | 0.299    |
+| time_rollout        | 5.18     |
+| time_train          | 24.1     |
+| time_ve             | 286      |
+| timesteps           | 5e+03    |
+| train/actor_loss    | -0.927   |
+| train/critic_loss   | 0.0203   |
+| train/episode       | 100      |
+| train/success_rate  | 0.24     |
+| train/sum_rewards   | -38.3    |
+| train/timesteps     | 5e+03    |
+| ve/loss             | 0.002    |
+| ve/stats_disag/mean | 0.115    |
+| ve/stats_disag/std  | 0.0869   |
+| ve/stats_g/mean     | 0.0547   |
+| ve/stats_g/std      | 0.516    |
+| ve/stats_o/mean     | 0.00886  |
+| ve/stats_o/std      | 0.247    |
+----------------------------------
+----------------------------------
+| ddpg/stats_g/mean   | -0.0356  |
+| ddpg/stats_g/std    | 0.435    |
+| ddpg/stats_o/mean   | -0.0476  |
+| ddpg/stats_o/std    | 0.387    |
+| epoch               | 2        |
+| test/episode        | 30       |
+| test/mean_Q         | -5.42    |
+| test/success_rate   | 0.1      |
+| test/sum_rewards    | -44.5    |
+| test/timesteps      | 1.5e+03  |
+| time_eval           | 0.293    |
+| time_rollout        | 5.11     |
+| time_train          | 24.3     |
+| time_ve             | 275      |
+| timesteps           | 7.5e+03  |
+| train/actor_loss    | -1.26    |
+| train/critic_loss   | 0.0246   |
+| train/episode       | 150      |
+| train/success_rate  | 0.2      |
+| train/sum_rewards   | -40.6    |
+| train/timesteps     | 7.5e+03  |
+| ve/loss             | 0.00334  |
+| ve/stats_disag/mean | 0.096    |
+| ve/stats_disag/std  | 0.112    |
+| ve/stats_g/mean     | 0.0264   |
+| ve/stats_g/std      | 0.503    |
+| ve/stats_o/mean     | -0.0478  |
+| ve/stats_o/std      | 0.388    |
+----------------------------------
+----------------------------------
+| ddpg/stats_g/mean   | -0.0376  |
+| ddpg/stats_g/std    | 0.427    |
+| ddpg/stats_o/mean   | -0.0472  |
+| ddpg/stats_o/std    | 0.369    |
+| epoch               | 3        |
+| test/episode        | 40       |
+| test/mean_Q         | -6.11    |
+| test/success_rate   | 0.2      |
+| test/sum_rewards    | -39.7    |
+| test/timesteps      | 2e+03    |
+| time_eval           | 0.309    |
+| time_rollout        | 5.2      |
+| time_train          | 24.6     |
+| time_ve             | 277      |
+| timesteps           | 1e+04    |
+| train/actor_loss    | -1.59    |
+| train/critic_loss   | 0.025    |
+| train/episode       | 200      |
+| train/success_rate  | 0.36     |
+| train/sum_rewards   | -31.7    |
+| train/timesteps     | 1e+04    |
+| ve/loss             | 0.0044   |
+| ve/stats_disag/mean | 0.114    |
+| ve/stats_disag/std  | 0.103    |
+| ve/stats_g/mean     | 0.0106   |
+| ve/stats_g/std      | 0.52     |
+| ve/stats_o/mean     | -0.0468  |
+| ve/stats_o/std      | 0.37     |
+----------------------------------
+----------------------------------
+| ddpg/stats_g/mean   | -0.0951  |
+| ddpg/stats_g/std    | 0.431    |
+| ddpg/stats_o/mean   | -0.109   |
+| ddpg/stats_o/std    | 0.378    |
+| epoch               | 4        |
+| test/episode        | 50       |
+| test/mean_Q         | -8.75    |
+| test/success_rate   | 0.1      |
+| test/sum_rewards    | -44.7    |
+| test/timesteps      | 2.5e+03  |
+| time_eval           | 0.241    |
+| time_rollout        | 5.15     |
+| time_train          | 24.2     |
+| time_ve             | 279      |
+| timesteps           | 1.25e+04 |
+| train/actor_loss    | -1.69    |
+| train/critic_loss   | 0.0239   |
+| train/episode       | 250      |
+| train/success_rate  | 0.4      |
+| train/sum_rewards   | -29.3    |
+| train/timesteps     | 1.25e+04 |
+| ve/loss             | 0.00725  |
+| ve/stats_disag/mean | 0.26     |
+| ve/stats_disag/std  | 0.22     |
+| ve/stats_g/mean     | -0.0312  |
+| ve/stats_g/std      | 0.516    |
+| ve/stats_o/mean     | -0.109   |
+| ve/stats_o/std      | 0.379    |
+----------------------------------
+----------------------------------
+| ddpg/stats_g/mean   | -0.0845  |
+| ddpg/stats_g/std    | 0.437    |
+| ddpg/stats_o/mean   | -0.0954  |
+| ddpg/stats_o/std    | 0.393    |
+| epoch               | 5        |
+| test/episode        | 60       |
+| test/mean_Q         | -9.03    |
+| test/success_rate   | 0.2      |
+| test/sum_rewards    | -39.6    |
+| test/timesteps      | 3e+03    |
+| time_eval           | 0.251    |
+| time_rollout        | 5.11     |
+| time_train          | 24.4     |
+| time_ve             | 279      |
+| timesteps           | 1.5e+04  |
+| train/actor_loss    | -1.76    |
+| train/critic_loss   | 0.0234   |
+| train/episode       | 300      |
+| train/success_rate  | 0.42     |
+| train/sum_rewards   | -30.5    |
+| train/timesteps     | 1.5e+04  |
+| ve/loss             | 0.00933  |
+| ve/stats_disag/mean | 0.311    |
+| ve/stats_disag/std  | 0.272    |
+| ve/stats_g/mean     | -0.0313  |
+| ve/stats_g/std      | 0.51     |
+| ve/stats_o/mean     | -0.0957  |
+| ve/stats_o/std      | 0.393    |
+----------------------------------
