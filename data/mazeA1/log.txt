@@ -2876,3 +2876,33 @@ Training...
 | ve/stats_o/mean     | -0.0145  |
 | ve/stats_o/std      | 0.445    |
 ----------------------------------
+----------------------------------
+| ddpg/stats_g/mean   | -0.012   |
+| ddpg/stats_g/std    | 0.473    |
+| ddpg/stats_o/mean   | -0.015   |
+| ddpg/stats_o/std    | 0.445    |
+| epoch               | 94       |
+| test/episode        | 950      |
+| test/mean_Q         | -2.72    |
+| test/success_rate   | 0.8      |
+| test/sum_rewards    | -16.7    |
+| test/timesteps      | 4.75e+04 |
+| time_eval           | 0.286    |
+| time_rollout        | 4.96     |
+| time_train          | 22       |
+| time_ve             | 259      |
+| timesteps           | 2.38e+05 |
+| train/actor_loss    | -1.86    |
+| train/critic_loss   | 0.033    |
+| train/episode       | 4.75e+03 |
+| train/success_rate  | 0.72     |
+| train/sum_rewards   | -25.2    |
+| train/timesteps     | 2.38e+05 |
+| ve/loss             | 0.086    |
+| ve/stats_disag/mean | 0.409    |
+| ve/stats_disag/std  | 0.268    |
+| ve/stats_g/mean     | -0.00754 |
+| ve/stats_g/std      | 0.497    |
+| ve/stats_o/mean     | -0.0145  |
+| ve/stats_o/std      | 0.445    |
+----------------------------------
